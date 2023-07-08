@@ -2,6 +2,7 @@ import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../api/auth.api';
 import { AuthContext } from '../context/auth.context';
+import { signInEmailPassword } from '../config/firebase.config';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -9,7 +10,7 @@ const Login = () => {
   const [errorMessage, setErrorMessage] = useState(undefined);
 
   const navigate = useNavigate();
-  const { storeToken, authenticateUser } = useContext(AuthContext);
+  const { handleGoogleAuthentication } = useContext(AuthContext);
 
   const handleEmail = e => setEmail(e.target.value);
   const handlePassword = e => setPassword(e.target.value);
@@ -21,14 +22,7 @@ const Login = () => {
       const user = { email, password };
 
       const response = await login(user);
-
-      // login responds with the jwt
-      // console.log(response.data.authToken);
-      storeToken(response.data.authToken);
-
-      // Verify the token by sending a request
-      // to the server's JWT validation endpoint
-      authenticateUser();
+      await signInEmailPassword(response.data.authToken);
 
       navigate('/');
     } catch (error) {
@@ -56,6 +50,7 @@ const Login = () => {
 
         <button type='submit'>Login</button>
       </form>
+      <button onClick={handleGoogleAuthentication}>Login With Google</button>
       {errorMessage && <p className='error-message'>{errorMessage}</p>}
 
       <p>Don&apos;t have an account yet?</p>

@@ -1,5 +1,10 @@
 import { createContext, useState, useEffect } from 'react';
-import { verify } from '../api/auth.api';
+import {
+  auth,
+  getAdditionalInfo,
+  signInWithGoogle
+} from '../config/firebase.config';
+import { signupGoogle } from '../api/auth.api';
 
 const AuthContext = createContext();
 
@@ -8,56 +13,67 @@ const AuthProviderWrapper = props => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  const storeToken = token => {
-    localStorage.setItem('authToken', token);
-  };
-
-  const authenticateUser = async () => {
-    // Get the stored token from the localStorage
-    const storedToken = localStorage.getItem('authToken');
-
-    // If the token exists in the localStorage
-    // verify it is valid
-    if (storedToken) {
-      try {
-        const response = await verify(storedToken);
-        const user = response.data;
-        // Update state variables
-        setUser(user);
-        setIsLoggedIn(true);
-        // setIsLoading(false);
-      } catch (error) {
-        console.log('An error occurred authenticating the user', error);
-        // If the server sends an error response (invalid token)
-        // Update state variables
+  const verifyUser = () => {
+    auth.onAuthStateChanged(async user => {
+      if (!user) {
         setUser(null);
         setIsLoggedIn(false);
-        // setIsLoading(false);
+      } else if (
+        user.providerData.length &&
+        user.providerData[0].providerId === 'google.com'
+      ) {
+        setUser({
+          name: user.displayName,
+          email: user.email
+        });
+        setIsLoggedIn(true);
+        const authToken = await user.getIdToken();
+        localStorage.setItem('authToken', authToken);
+      } else {
+        const { claims } = await user.getIdTokenResult();
+        setUser({
+          name: claims.name,
+          email: claims.email
+        });
+        setIsLoggedIn(true);
+        const authToken = await user.getIdToken();
+        localStorage.setItem('authToken', authToken);
       }
-    } else {
-      // If the token is not available (or is removed)
-      setUser(null);
-      setIsLoggedIn(false);
-      // setIsLoading(false);
-    }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    });
+  };
+
+  const handleGoogleAuthentication = async () => {
+    try {
+      const userCredential = await signInWithGoogle();
+      const additionalInfo = getAdditionalInfo(userCredential);
+      if (additionalInfo.isNewUser) {
+        await signupGoogle({
+          name: userCredential.user.displayName,
+          email: userCredential.user.email
+        });
+      }
+    } catch (error) {
+      console.log('Error authenticating with Google', error);
+    }
   };
 
   const removeToken = () => {
     // Upon logout, remove the token from the localStorage
     localStorage.removeItem('authToken');
+    auth.signOut();
   };
 
   const logOutUser = () => {
     // To log out the user, remove the token
     removeToken();
     // and update the state variables
-    authenticateUser();
+    verifyUser();
   };
 
   useEffect(() => {
-    authenticateUser();
+    verifyUser();
   }, []);
 
   return (
@@ -66,9 +82,8 @@ const AuthProviderWrapper = props => {
         isLoggedIn,
         isLoading,
         user,
-        storeToken,
-        authenticateUser,
-        logOutUser
+        logOutUser,
+        handleGoogleAuthentication
       }}
     >
       {props.children}

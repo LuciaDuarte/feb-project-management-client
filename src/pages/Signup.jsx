@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import { AuthContext } from '../context/auth.context';
 import { Link, useNavigate } from 'react-router-dom';
 import { signup } from '../api/auth.api';
 
@@ -9,6 +10,7 @@ const Signup = () => {
   const [errorMessage, setErrorMessage] = useState(undefined);
 
   const navigate = useNavigate();
+  const { handleGoogleAuthentication } = useContext(AuthContext);
 
   const handleEmail = e => setEmail(e.target.value);
   const handlePassword = e => setPassword(e.target.value);
@@ -50,6 +52,7 @@ const Signup = () => {
 
         <button type='submit'>Sign Up</button>
       </form>
+      <button onClick={handleGoogleAuthentication}>Signup With Google</button>
 
       {errorMessage && <p className='error-message'>{errorMessage}</p>}
 
